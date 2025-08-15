@@ -1,40 +1,46 @@
-# SPDX-FileCopyrightText: © 2024 Tiny Tapeout
-# SPDX-License-Identifier: Apache-2.0
+`default_nettype none
+`timescale 1ns / 1ps
 
-import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
+/*
+ * This testbench instantiates the tt_um_uart module
+ * and defines convenient signals for use in the cocotb Python test (test.py).
+ */
 
+module tb ();
 
-@cocotb.test()
-async def test_project(dut):
-    dut._log.info("Start")
+  // Generate VCD dump for waveform viewing
+  initial begin
+    $dumpfile("tb.vcd");
+    $dumpvars(0, tb);
+    #1;
+  end
 
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, units="us")
-    cocotb.start_soon(clock.start())
+  // Clock and reset
+  reg clk;
+  reg rst_n;
+  reg ena;
 
-    # Reset
-    dut._log.info("Reset")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
-    dut.rst_n.value = 1
+  // 8-bit I/O signals (as per Tiny Tapeout specification)
+  reg  [7:0] ui_in;     // Control inputs (e.g., tr_en, clk_sel, etc.)
+  reg  [7:0] uio_in;    // IO inputs (e.g., rx_data_in, tr_fifo_data_w)
+  wire [7:0] uo_out;    // Received data output (rx_data_read_out)
+  wire [7:0] uio_out;   // Output bus (tx_line, interrupts, busy)
+  wire [7:0] uio_oe;    // Output enables
 
-    dut._log.info("Test project behavior")
+  // Instantiate your UART design (renamed to match Tiny Tapeout naming)
+  tt_um_uart user_project (
+      .ui_in   (ui_in),
+      .uo_out  (uo_out),
+      .uio_in  (uio_in),
+      .uio_out (uio_out),
+      .uio_oe  (uio_oe),
+      .ena     (ena),
+      .clk     (clk),
+      .rst_n   (rst_n)
+  );
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+  // Clock generation
+  initial clk = 0;
+  always #5 clk = ~clk;  // 100 MHz clock (10ns period)
 
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
-
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+endmodule
